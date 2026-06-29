@@ -1,1 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fetch — Media Downloader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --accent: #7c6af7;
+      --accent-dim: rgba(124, 106, 247, 0.15);
+      --accent-glow: rgba(124, 106, 247, 0.35);
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+      --success: #4ade80;
+      --error: #f87171;
+      --warn: #fb923c;
+    }
 
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,106,247,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,106,247,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      width: 100%;
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    .logo span {
+      color: var(--accent);
+    }
+
+    .badge {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      padding: 3px 8px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(124,106,247,0.3);
+      border-radius: 4px;
+      color: var(--accent);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    main {
+      width: 100%;
+      max-width: 680px;
+      padding: 60px 24px 80px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 56px);
+      font-weight: 700;
+      letter-spacing: -2px;
+      line-height: 1.05;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .hero p {
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.6;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .url-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .url-input::placeholder { color: var(--muted); }
+
+    .url-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .btn {
+      padding: 14px 22px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #8f7eff;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .platforms {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 48px;
+    }
+
+    .platform-tag {
+      font-size: 12px;
+      padding: 4px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      color: var(--muted);
+    }
+
+    /* Info card */
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      display: none;
+    }
+
+    .info-card.visible { display: block; }
+
+    .info-card-inner {
+      display: flex;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .thumbnail {
+      width: 120px;
+      height: 68px;
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
+      background: var(--border);
+    }
+
+    .thumbnail-placeholder {
+      width: 120px;
+      height: 68px;
+      border-radius: 8px;
+      background: var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .info-meta { flex: 1; min-width: 0; }
+
+    .info-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .info-sub {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .info-sub span { display: flex; align-items: center; gap: 4px; }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Format selector */
+    .format-section {
+      padding: 20px;
+    }
+
+    .format-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      padding: 8px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.15s;
+    }
+
+    .tab.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .format-grid {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .format-chip {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .format-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    .format-chip.selected {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .download-btn-wrap {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* Status messages */
+    .status-bar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .status-bar.visible { display: flex; }
+    .status-bar.loading { background: var(--accent-dim); border: 1px solid rgba(124,106,247,0.3); color: var(--accent); }
+    .status-bar.success { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); color: var(--success); }
+    .status-bar.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--error); }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Progress bar */
+    .progress-wrap {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .progress-wrap.visible { display: block; }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #a78bf5);
+      border-radius: 2px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+
+    .progress-bar.indeterminate {
+      width: 40% !important;
+      animation: slide 1.2s ease-in-out infinite;
+    }
+
+    @keyframes slide {
+      0% { transform: translateX(-150%); }
+      100% { transform: translateX(350%); }
+    }
+
+    /* History */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    footer {
+      position: relative;
+      z-index: 1;
+      padding: 32px 24px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      width: 100%;
+    }
+
+    @media (max-width: 480px) {
+      .input-group { flex-direction: column; }
+      .info-card-inner { flex-direction: column; }
+      .thumbnail, .thumbnail-placeholder { width: 100%; height: 160px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">fetch<span>.</span></div>
+  <div class="badge">Media Downloader</div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>Download <em>anything.</em><br/>Instantly.</h1>
+    <p>Paste a link from YouTube, Twitter, Instagram, TikTok,<br/>SoundCloud and 1000+ other sites.</p>
+  </div>
+
+  <div class="input-group">
+    <input
+      id="urlInput"
+      class="url-input"
+      type="url"
+      placeholder="https://youtube.com/watch?v=..."
+      autofocus
+    />
+    <button class="btn btn-primary" id="fetchBtn" onclick="fetchInfo()">Fetch</button>
+  </div>
+
+  <div class="platforms" style="margin-bottom: 32px">
+    <span class="platform-tag">YouTube</span>
+    <span class="platform-tag">Twitter / X</span>
+    <span class="platform-tag">Instagram</span>
+    <span class="platform-tag">TikTok</span>
+    <span class="platform-tag">SoundCloud</span>
+    <span class="platform-tag">Vimeo</span>
+    <span class="platform-tag">+ 1000 more</span>
+  </div>
+
+  <div class="status-bar" id="statusBar">
+    <div class="spinner" id="statusSpinner"></div>
+    <span id="statusText"></span>
+  </div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar indeterminate" id="progressBar"></div>
+  </div>
+
+  <div class="info-card" id="infoCard">
+    <div class="info-card-inner">
+      <img class="thumbnail" id="thumbnail" src="" alt="" onerror="this.style.display='none'; document.getElementById('thumbPlaceholder').style.display='flex';" />
+      <div class="thumbnail-placeholder" id="thumbPlaceholder" style="display:none">🎬</div>
+      <div class="info-meta">
+        <div class="info-title" id="videoTitle">—</div>
+        <div class="info-sub">
+          <span id="metaDuration">⏱ —</span>
+          <span id="metaUploader">👤 —</span>
+          <span id="metaPlatform">📡 —</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="format-section">
+      <div class="format-tabs">
+        <button class="tab active" id="tabVideo" onclick="switchTab('video')">🎬 Video</button>
+        <button class="tab" id="tabAudio" onclick="switchTab('audio')">🎵 Audio Only</button>
+      </div>
+
+      <div class="format-grid" id="formatGrid"></div>
+
+      <div class="download-btn-wrap">
+        <button class="btn btn-primary" id="downloadBtn" onclick="startDownload()">
+          ↓ Download
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>fetch. — Powered by yt-dlp &nbsp;·&nbsp; For personal use only. Respect copyright.</p>
+</footer>
+
+<script>
+  let currentFormats = { video: [], audio: [] };
+  let selectedFormat = null;
+  let currentTab = 'video';
+
+  const urlInput = document.getElementById('urlInput');
+  const fetchBtn = document.getElementById('fetchBtn');
+  const infoCard = document.getElementById('infoCard');
+  const statusBar = document.getElementById('statusBar');
+  const statusSpinner = document.getElementById('statusSpinner');
+  const statusText = document.getElementById('statusText');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar = document.getElementById('progressBar');
+
+  urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') fetchInfo(); });
+
+  function showStatus(msg, type = 'loading') {
+    statusBar.className = `status-bar visible ${type}`;
+    statusSpinner.style.display = type === 'loading' ? 'block' : 'none';
+    statusText.textContent = msg;
+  }
+
+  function hideStatus() { statusBar.className = 'status-bar'; }
+
+  function showProgress() {
+    progressWrap.className = 'progress-wrap visible';
+    progressBar.className = 'progress-bar indeterminate';
+  }
+
+  function hideProgress() { progressWrap.className = 'progress-wrap'; }
+
+  async function fetchInfo() {
+    const url = urlInput.value.trim();
+    if (!url) return;
+
+    fetchBtn.disabled = true;
+    infoCard.className = 'info-card';
+    showStatus('Fetching media info…', 'loading');
+    showProgress();
+
+    try {
+      const res = await fetch('/api/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch info');
+
+      // Populate info
+      document.getElementById('videoTitle').textContent = data.title || 'Untitled';
+      document.getElementById('metaDuration').textContent = `⏱ ${data.duration || '—'}`;
+      document.getElementById('metaUploader').textContent = `👤 ${data.uploader || '—'}`;
+      document.getElementById('metaPlatform').textContent = `📡 ${data.platform || '—'}`;
+
+      const thumb = document.getElementById('thumbnail');
+      const thumbPlaceholder = document.getElementById('thumbPlaceholder');
+      if (data.thumbnail) {
+        thumb.src = data.thumbnail;
+        thumb.style.display = 'block';
+        thumbPlaceholder.style.display = 'none';
+      } else {
+        thumb.style.display = 'none';
+        thumbPlaceholder.style.display = 'flex';
+      }
+
+      currentFormats = data.formats;
+      switchTab('video');
+      infoCard.className = 'info-card visible';
+      hideStatus();
+    } catch (err) {
+      showStatus(err.message, 'error');
+    } finally {
+      fetchBtn.disabled = false;
+      hideProgress();
+    }
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabVideo').className = 'tab' + (tab === 'video' ? ' active' : '');
+    document.getElementById('tabAudio').className = 'tab' + (tab === 'audio' ? ' active' : '');
+
+    const formats = currentFormats[tab] || [];
+    const grid = document.getElementById('formatGrid');
+    grid.innerHTML = '';
+
+    formats.forEach((f, i) => {
+      const chip = document.createElement('button');
+      chip.className = 'format-chip' + (i === 0 ? ' selected' : '');
+      chip.textContent = f.label;
+      chip.onclick = () => {
+        document.querySelectorAll('.format-chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        selectedFormat = f.value;
+      };
+      grid.appendChild(chip);
+    });
+
+    selectedFormat = formats[0]?.value || null;
+  }
+
+  async function startDownload() {
+    const url = urlInput.value.trim();
+    if (!url) return;
+
+    const downloadBtn = document.getElementById('downloadBtn');
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = 'Preparing…';
+    showStatus('Downloading — this may take a moment…', 'loading');
+    showProgress();
+
+    try {
+      const res = await fetch('/api/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, format: selectedFormat, type: currentTab }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Download failed');
+
+      showStatus('Done! Your download is starting…', 'success');
+
+      // Trigger browser download
+      const link = document.createElement('a');
+      link.href = `/api/file/${data.fileId}`;
+      link.download = data.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setTimeout(hideStatus, 5000);
+    } catch (err) {
+      showStatus(err.message, 'error');
+    } finally {
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = '↓ Download';
+      hideProgress();
+    }
+  }
+</script>
+</body>
+</html>
